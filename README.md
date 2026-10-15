@@ -1,5 +1,7 @@
 # 🧁 ChatLedger
 
+![ChatLedger Hero Banner](docs/images/chatledger_banner.jpg)
+
 > **Turning a home seller’s WhatsApp chaos into tomorrow’s order sheet, entirely on her own laptop.**
 
 ChatLedger is an open-source, local-first application designed for home-based bakers, caterers, and craft sellers who receive 10–40 orders a day over WhatsApp in English (*“I would like to order a 1kg chocolate cake for Sunday evening, deliver to Peradeniya”*).
