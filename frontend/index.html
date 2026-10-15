@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatLedger — WhatsApp Order Ledger for Home Sellers</title>
+  <meta name="description" content="Local, private, offline order extraction from English WhatsApp chats directly into production and delivery Excel sheets.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <header class="navbar" id="appNavbar">
+    <div class="brand">
+      <div class="brand-icon">🧁</div>
+      <div class="brand-text">
+        <h1 id="brandTitle">ChatLedger</h1>
+        <p id="sellerSubtitle">The Cake Studio (Local & Private)</p>
+      </div>
+    </div>
+
+    <div class="nav-center">
+      <div class="status-badge" id="engineStatusBadge" title="Inference Runtime Status">
+        <span class="status-dot" id="engineStatusDot"></span>
+        <span id="engineStatusText">Checking Engine...</span>
+      </div>
+    </div>
+
+    <div class="nav-actions">
+      <button class="btn btn-secondary btn-sm" id="btnLoadDemo" title="Load realistic English test chats">
+        <span>⚡</span> Load Demo Chats
+      </button>
+      <button class="btn btn-primary btn-sm" id="btnOpenUpload">
+        <span>📥</span> Import WhatsApp (.txt)
+      </button>
+      <button class="btn btn-secondary btn-sm" id="btnOpenCatalog">
+        <span>📖</span> Catalog
+      </button>
+      <button class="btn btn-success btn-sm" id="btnOpenExport">
+        <span>📊</span> Export Sheets
+      </button>
+      <button class="btn btn-secondary btn-sm" id="btnOpenLora" title="LoRA Fine-tuning Dataset & Continual Learning">
+        <span>🧠</span> LoRA Dataset (<span id="loraCountBadge">0</span>)
+      </button>
+      <button class="btn btn-secondary btn-sm" id="btnOpenSettings">
+        <span>⚙️</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Metrics Dashboard Banner -->
+  <section class="stats-banner" id="statsBanner">
+    <div class="stat-card">
+      <div class="stat-icon">📅</div>
+      <div>
+        <div class="stat-val" id="statTodayBakes">0</div>
+        <div class="stat-label">Upcoming Deliveries</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon gold">⏳</div>
+      <div>
+        <div class="stat-val" id="statPendingReview">0</div>
+        <div class="stat-label">Orders to Review</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon green">💰</div>
+      <div>
+        <div class="stat-val" id="statTotalRevenue">0 LKR</div>
+        <div class="stat-label">Batch Revenue</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon purple">🛑</div>
+      <div>
+        <div class="stat-val" id="statChangedCancelled">0</div>
+        <div class="stat-label">Changes & Cancellations</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Split Review Workspace -->
+  <main class="main-layout" id="mainLayout">
+    <!-- Left Orders Sidebar -->
+    <aside class="orders-sidebar" id="ordersSidebar">
+      <div class="sidebar-header">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="search-input" id="searchOrdersInput" placeholder="Search customer, phone, area...">
+        </div>
+        <div class="filter-pills" id="statusFilterPills">
+          <button class="pill active" data-filter="all">All</button>
+          <button class="pill" data-filter="new">New</button>
+          <button class="pill" data-filter="changed">Changed</button>
+          <button class="pill" data-filter="cancelled">Cancelled</button>
+          <button class="pill" data-filter="confirmed">Confirmed</button>
+        </div>
+      </div>
+
+      <div class="orders-list" id="ordersListContainer">
+        <!-- Rendered order cards -->
+      </div>
+    </aside>
+
+    <!-- Right Detail Split Workspace -->
+    <section class="review-workspace" id="reviewWorkspace">
+      <!-- Left Subpane: WhatsApp Chat View -->
+      <div class="chat-pane" id="chatPane">
+        <div class="pane-header">
+          <div class="pane-title">
+            <span>💬</span> WhatsApp Source Thread
+          </div>
+          <div style="font-size: 0.78rem; color: var(--text-dim);" id="chatTimeWindow">
+            48h Window
+          </div>
+        </div>
+
+        <div class="chat-stream" id="chatStream">
+          <div class="empty-state">
+            <div class="empty-icon">👈</div>
+            <p>Select an order on the left to review the customer's WhatsApp chat</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Subpane: Order Inspector -->
+      <div class="inspector-pane" id="inspectorPane">
+        <div class="empty-state" id="inspectorEmptyState">
+          <div class="empty-icon">📝</div>
+          <p>No order selected for inspection</p>
+        </div>
+
+        <div id="inspectorContent" style="display: none; display: flex; flex-direction: column; gap: 1.25rem;">
+          <!-- Status Banner -->
+          <div id="inspectorStatusAlert" class="order-alert-box" style="display: none;">
+            <span id="inspectorAlertIcon">⚠️</span>
+            <span id="inspectorAlertText">Notice message</span>
+          </div>
+
+          <!-- Customer & Delivery Info Card -->
+          <div class="card-section">
+            <div class="section-title">
+              <span>Customer & Delivery Details</span>
+              <span id="orderConfidenceBadge" class="confidence-indicator">Confidence: 95%</span>
+            </div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label" for="editCustomerName">Customer Name</label>
+                <input type="text" id="editCustomerName" class="form-input">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="editCustomerPhone">Customer Phone</label>
+                <div style="display: flex; gap: 0.4rem;">
+                  <input type="text" id="editCustomerPhone" class="form-input" style="flex: 1;">
+                  <a id="btnWhatsAppDirect" href="#" target="_blank" class="btn btn-secondary btn-sm" title="Open in WhatsApp">💬</a>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="editDeliveryDate">Delivery Date</label>
+                <input type="date" id="editDeliveryDate" class="form-input">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="editDeliveryTime">Delivery Time Slot</label>
+                <input type="text" id="editDeliveryTime" class="form-input" placeholder="e.g. Evening 5pm">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="editDeliveryArea">Area / Town</label>
+                <input type="text" id="editDeliveryArea" class="form-input" placeholder="e.g. Peradeniya">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="editPaymentStatus">Payment Status</label>
+                <select id="editPaymentStatus" class="form-select">
+                  <option value="pending">Pending</option>
+                  <option value="cod">Cash on Delivery (COD)</option>
+                  <option value="paid">Paid (Bank Transfer)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group" style="margin-top: 0.75rem;">
+              <label class="form-label" for="editDeliveryAddress">Delivery Address / Landmark</label>
+              <input type="text" id="editDeliveryAddress" class="form-input" placeholder="Full street address or landmark">
+            </div>
+          </div>
+
+          <!-- Order Items Card -->
+          <div class="card-section">
+            <div class="section-title">
+              <span>Order Items (Priced against Catalog)</span>
+              <button class="btn btn-secondary btn-sm" id="btnAddItemRow">+ Add Item</button>
+            </div>
+
+            <table class="items-table" id="itemsTable">
+              <thead>
+                <tr>
+                  <th style="width: 35%;">Product</th>
+                  <th style="width: 20%;">Variant</th>
+                  <th style="width: 12%;">Qty</th>
+                  <th style="width: 15%;">Price (LKR)</th>
+                  <th style="width: 10%;">Subtotal</th>
+                  <th style="width: 8%;"></th>
+                </tr>
+              </thead>
+              <tbody id="itemsTableBody">
+                <!-- Line items rows -->
+              </tbody>
+            </table>
+
+            <div style="display: flex; justify-content: flex-end; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+              <div style="text-align: right;">
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Total Order Amount:</span>
+                <span id="editTotalAmount" style="font-size: 1.25rem; font-weight: 700; color: var(--accent-gold); margin-left: 0.5rem;">0.00 LKR</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Custom Notes & Instructions Card -->
+          <div class="card-section">
+            <div class="section-title">Custom Notes & Inscriptions</div>
+            <div class="form-group">
+              <label class="form-label" for="editUserNotes">Special Kitchen Instructions (e.g. Icing text, ribbons, allergies)</label>
+              <textarea id="editUserNotes" class="form-input" rows="2" placeholder="e.g. Happy Birthday Amma in chocolate icing"></textarea>
+            </div>
+            <div id="inspectorWarningFlags" style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem;">
+              <!-- Warning chips -->
+            </div>
+          </div>
+
+          <!-- Sticky Action Toolbar -->
+          <div class="inspector-actions">
+            <button class="btn btn-success" id="btnConfirmOrder" style="flex: 2;">
+              <span>✓</span> Confirm & Save Example
+            </button>
+            <button class="btn btn-secondary" id="btnSaveOrder" style="flex: 1;">
+              <span>💾</span> Save Edits
+            </button>
+            <button class="btn btn-danger" id="btnCancelOrder" style="flex: 1;">
+              <span>🛑</span> Cancel Order
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btnDeleteOrder" title="Delete Order">
+              <span>🗑</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal: Upload WhatsApp Chat Export -->
+  <div class="modal-overlay" id="modalUpload">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">📥 Import WhatsApp Chat Export (.txt)</h2>
+        <button class="btn-close" data-close="modalUpload">&times;</button>
+      </div>
+
+      <p style="font-size: 0.85rem; color: var(--text-muted);">
+        Export any WhatsApp chat from your phone (without media) and upload the <code>.txt</code> file here.
+        Your customer data never leaves your laptop.
+      </p>
+
+      <div class="form-group">
+        <label class="form-label" for="selectEnginePreference">Inference Extraction Engine</label>
+        <select id="selectEnginePreference" class="form-select">
+          <option value="auto">Auto (Ollama Qwen3-8B if running, else Local English Heuristic)</option>
+          <option value="heuristic">Local English Heuristic (100% Offline & Instant)</option>
+          <option value="ollama">Ollama Local LLM (qwen3:8b)</option>
+        </select>
+      </div>
+
+      <div class="drop-zone" id="chatDropZone">
+        <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📄</div>
+        <p style="font-weight: 600; font-size: 0.95rem;">Drag & drop WhatsApp export .txt here</p>
+        <p style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.25rem;">or click to browse from your computer</p>
+        <input type="file" id="chatFileInput" accept=".txt" style="display: none;">
+      </div>
+
+      <div id="uploadProgress" style="display: none; text-align: center; font-size: 0.85rem; color: var(--accent-blue);">
+        Parsing and extracting orders deterministically...
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Excel Export -->
+  <div class="modal-overlay" id="modalExport">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">📊 Export Tomorrow's Excel Sheets</h2>
+        <button class="btn-close" data-close="modalExport">&times;</button>
+      </div>
+
+      <p style="font-size: 0.85rem; color: var(--text-muted);">
+        Generated directly on your machine using <code>openpyxl</code> with executive formatting, formulas, and color coding.
+      </p>
+
+      <div class="form-group">
+        <label class="form-label" for="exportTargetDate">Target Delivery Date (leave empty for all upcoming)</label>
+        <input type="date" id="exportTargetDate" class="form-input">
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+        <button class="btn btn-primary" id="btnExportProduction">
+          <span>🧁</span> Download Daily Kitchen Production Sheet (.xlsx)
+        </button>
+        <button class="btn btn-secondary" id="btnExportDelivery">
+          <span>🚚</span> Download Dispatch & Delivery Sheet by Area (.xlsx)
+        </button>
+        <button class="btn btn-secondary" id="btnExportPayments">
+          <span>💳</span> Download Outstanding Payments & COD Tracker (.xlsx)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Baker's Product Catalog -->
+  <div class="modal-overlay" id="modalCatalog">
+    <div class="modal-card" style="max-width: 800px;">
+      <div class="modal-header">
+        <h2 class="modal-title">📖 Baker's Product Catalog & Prices</h2>
+        <button class="btn-close" data-close="modalCatalog">&times;</button>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <p style="font-size: 0.85rem; color: var(--text-muted);">
+          Deterministic pricing: the LLM never does math. Products and English aliases map here.
+        </p>
+        <button class="btn btn-primary btn-sm" id="btnAddNewCatalogItem">+ Add Item</button>
+      </div>
+
+      <div style="max-height: 400px; overflow-y: auto;">
+        <table class="items-table" id="catalogTable">
+          <thead>
+            <tr>
+              <th>Product Name</th>
+              <th>Category</th>
+              <th>Variant</th>
+              <th>Price (LKR)</th>
+              <th>Product Aliases</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="catalogTableBody">
+            <!-- Catalog items -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: LoRA Continual Learning Dataset -->
+  <div class="modal-overlay" id="modalLora">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">🧠 LoRA Continual Learning & Few-Shot Repository</h2>
+        <button class="btn-close" data-close="modalLora">&times;</button>
+      </div>
+
+      <p style="font-size: 0.85rem; color: var(--text-muted);">
+        Every time you confirm or edit an order, ChatLedger saves the verified ground-truth.
+        These are dynamically injected as few-shot prompt examples immediately, and can be exported as a LoRA fine-tuning dataset for Qwen3-8B!
+      </p>
+
+      <div class="card-section">
+        <div style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">
+          Verified Ground Truth Examples: <span id="modalLoraCount" style="color: var(--accent-gold);">0</span>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--text-dim);">
+          Format: Alpaca / ShareGPT instruction dataset ready for Unsloth, PEFT, or llama.cpp fine-tuning on your orders.
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem;">
+        <button class="btn btn-primary" id="btnDownloadLoraAlpaca">
+          <span>💾</span> Download Alpaca JSONL
+        </button>
+        <button class="btn btn-secondary" id="btnDownloadLoraShareGPT">
+          <span>💾</span> Download ShareGPT JSONL
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Settings -->
+  <div class="modal-overlay" id="modalSettings">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">⚙️ Seller & LLM Configuration</h2>
+        <button class="btn-close" data-close="modalSettings">&times;</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="settingSellerName">Business / Baker Name</label>
+        <input type="text" id="settingSellerName" class="form-input" value="The Cake Studio">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="settingSellerPhone">Business WhatsApp Phone</label>
+        <input type="text" id="settingSellerPhone" class="form-input" value="+94 77 123 4567">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="settingCurrency">Currency Code</label>
+        <input type="text" id="settingCurrency" class="form-input" value="LKR">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="settingOllamaUrl">Ollama Server Endpoint</label>
+        <input type="text" id="settingOllamaUrl" class="form-input" value="http://127.0.0.1:11434">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="settingOllamaModel">Ollama Model</label>
+        <input type="text" id="settingOllamaModel" class="form-input" value="qwen3:8b">
+      </div>
+
+      <button class="btn btn-primary" id="btnSaveSettings">Save Settings</button>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

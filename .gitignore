@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local environment & virtualenvs
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Local databases & runtime exports (privacy guarantee)
+data/*.db
+data/*.sqlite3
+data/exports/*.xlsx
+data/uploads/*
+!data/uploads/.gitkeep
+!data/exports/.gitkeep
+!data/datasets/.gitkeep
+
+# IDEs & OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
